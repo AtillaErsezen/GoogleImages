@@ -1,38 +1,37 @@
-// Set defaults on install
-chrome.runtime.onInstalled.addListener(() => {
-    chrome.storage.local.set({ isActive: false, folderName: 'QuickSaves' });
-    chrome.action.setBadgeText({ text: 'OFF' });
-    chrome.action.setBadgeBackgroundColor({ color: '#888' });
-});
-
-// Listen for the download message from content.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'downloadImage') {
-
-        // Fetch the custom folder name from storage
         chrome.storage.local.get(['folderName'], (res) => {
 
-            // Format the folder path (add a slash if a folder is specified)
-            let folderPrefix = '';
+            let finalFolder = '';
+
+            // 1. Use manual folder if provided
             if (res.folderName && res.folderName.trim() !== '') {
-                folderPrefix = res.folderName.trim() + '/';
+                finalFolder = res.folderName.trim();
+            }
+            // 2. Otherwise, use the search query from Google
+            else if (request.query) {
+                // Sanitize: "golden retriever" -> "golden_retriever"
+                finalFolder = request.query.toLowerCase().replace(/\s+/g, '_');
+            }
+            // 3. Absolute fallback
+            else {
+                finalFolder = 'Unsorted';
             }
 
-            let finalFilename = 'quick_save_image.jpg';
+            let finalFilename = 'image.jpg';
             if (!request.url.startsWith('data:')) {
                 try {
                     const urlObj = new URL(request.url);
-                    const extractedName = urlObj.pathname.split('/').pop();
-                    if (extractedName && extractedName.includes('.')) {
-                        finalFilename = extractedName;
-                    }
+                    finalFilename = urlObj.pathname.split('/').pop() || 'image.jpg';
                 } catch (e) { }
+            } else {
+                // For base64 thumbnails, use a timestamp to avoid overwriting
+                finalFilename = `img_${Date.now()}.jpg`;
             }
 
-            // Trigger the download
             chrome.downloads.download({
                 url: request.url,
-                filename: folderPrefix + finalFilename,
+                filename: `${finalFolder}/${finalFilename}`,
                 saveAs: false
             });
         });

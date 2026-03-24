@@ -1,57 +1,45 @@
 let isActive = false;
 
-// Check initial state
-chrome.storage.local.get(['isActive'], (res) => {
-    isActive = !!res.isActive;
-});
-
-// Listen for toggle changes
+chrome.storage.local.get(['isActive'], (res) => { isActive = !!res.isActive; });
 chrome.storage.onChanged.addListener((changes) => {
-    if (changes.isActive) {
-        isActive = changes.isActive.newValue;
-    }
+    if (changes.isActive) isActive = changes.isActive.newValue;
 });
 
-// A helper function to hunt down the image URL, even through overlays
-function findImageUrl(element) {
-    // 1. Did we click directly on an image?
-    if (element.tagName.toLowerCase() === 'img' && element.src) {
-        return element.src;
+function getGoogleSearchQuery() {
+    // 1. Try to get it from the search input box directly
+    const searchInput = document.querySelector('input[name="q"]');
+    if (searchInput && searchInput.value) {
+        return searchInput.value.trim();
     }
+    // 2. Fallback: Try to get it from the URL parameters
+    const params = new URLSearchParams(window.location.search);
+    return params.get('q') || '';
+}
 
-    // 2. Did we click on an overlay? Let's check the parent container for an image tag.
+function findImageUrl(element) {
+    if (element.tagName.toLowerCase() === 'img' && element.src) return element.src;
     if (element.parentElement) {
         const hiddenImg = element.parentElement.querySelector('img');
-        if (hiddenImg && hiddenImg.src) {
-            return hiddenImg.src;
-        }
+        if (hiddenImg && hiddenImg.src) return hiddenImg.src;
     }
-
-    // 3. Does the element have a CSS background-image?
-    const bgImage = window.getComputedStyle(element).backgroundImage;
-    if (bgImage && bgImage !== 'none') {
-        const match = bgImage.match(/^url\(['"]?(.+?)['"]?\)$/);
-        if (match && match[1]) {
-            return match[1];
-        }
-    }
-
     return null;
 }
 
-// Notice the 'true' at the end! This uses the Capture Phase.
 document.addEventListener('contextmenu', (event) => {
     if (!isActive) return;
 
     const imageUrl = findImageUrl(event.target);
-
     if (imageUrl) {
-        event.preventDefault(); // Stop the default browser menu
-        event.stopPropagation(); // Stop Google's scripts from overriding us
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Get the search query (e.g., "golden retriever")
+        const searchQuery = getGoogleSearchQuery();
 
         chrome.runtime.sendMessage({
             action: 'downloadImage',
-            url: imageUrl
+            url: imageUrl,
+            query: searchQuery
         });
     }
-}, true); // <-- CRITICAL: 'true' intercepts the click BEFORE the website's JS does.
+}, true);
