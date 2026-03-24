@@ -1,37 +1,36 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'downloadImage') {
-        chrome.storage.local.get(['folderName'], (res) => {
+        chrome.storage.local.get(['folderName', 'fileName'], (res) => {
 
-            let finalFolder = '';
+            // 1. Determine the Folder
+            let finalFolder = (res.folderName && res.folderName.trim() !== '')
+                ? res.folderName.trim()
+                : (request.query ? request.query.toLowerCase().replace(/\s+/g, '_') : 'Unsorted');
 
-            // 1. Use manual folder if provided
-            if (res.folderName && res.folderName.trim() !== '') {
-                finalFolder = res.folderName.trim();
-            }
-            // 2. Otherwise, use the search query from Google
-            else if (request.query) {
-                // Sanitize: "golden retriever" -> "golden_retriever"
-                finalFolder = request.query.toLowerCase().replace(/\s+/g, '_');
-            }
-            // 3. Absolute fallback
-            else {
-                finalFolder = 'Unsorted';
-            }
+            // 2. Determine the Base Filename
+            let baseName = (res.fileName && res.fileName.trim() !== '')
+                ? res.fileName.trim()
+                : (request.query ? request.query.toLowerCase().replace(/\s+/g, '_') : 'image');
 
-            let finalFilename = 'image.jpg';
+            // 3. Add a timestamp for uniqueness (Crucial for CV datasets)
+            // Format: label_1711283200.jpg
+            const timestamp = Math.floor(Date.now() / 1000);
+
+            // 4. Determine Extension (detecting from URL or defaulting to .jpg)
+            let extension = '.jpg';
             if (!request.url.startsWith('data:')) {
-                try {
-                    const urlObj = new URL(request.url);
-                    finalFilename = urlObj.pathname.split('/').pop() || 'image.jpg';
-                } catch (e) { }
-            } else {
-                // For base64 thumbnails, use a timestamp to avoid overwriting
-                finalFilename = `img_${Date.now()}.jpg`;
+                const parts = request.url.split('.');
+                if (parts.length > 1) {
+                    const ext = parts.pop().split(/[#?]/)[0];
+                    if (ext.length <= 4) extension = '.' + ext;
+                }
             }
+
+            const finalPath = `${finalFolder}/${baseName}_${timestamp}${extension}`;
 
             chrome.downloads.download({
                 url: request.url,
-                filename: `${finalFolder}/${finalFilename}`,
+                filename: finalPath,
                 saveAs: false
             });
         });
