@@ -1,28 +1,40 @@
-// Set the default state to OFF when first installed
+// Set defaults on install
 chrome.runtime.onInstalled.addListener(() => {
-    chrome.storage.local.set({ isActive: false });
+    chrome.storage.local.set({ isActive: false, folderName: 'QuickSaves' });
     chrome.action.setBadgeText({ text: 'OFF' });
     chrome.action.setBadgeBackgroundColor({ color: '#888' });
 });
 
-// Toggle the ON/OFF state when the extension icon is clicked
-chrome.action.onClicked.addListener((tab) => {
-    chrome.storage.local.get(['isActive'], (res) => {
-        const newState = !res.isActive;
-        chrome.storage.local.set({ isActive: newState });
-
-        // Update the visual badge on the icon
-        chrome.action.setBadgeText({ text: newState ? 'ON' : 'OFF' });
-        chrome.action.setBadgeBackgroundColor({ color: newState ? '#0a0' : '#888' });
-    });
-});
-
-// Listen for messages from the content script to download the image
+// Listen for the download message from content.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'downloadImage') {
-        chrome.downloads.download({
-            url: request.url,
-            saveAs: false // This bypasses the "Save As..." popup
+
+        // Fetch the custom folder name from storage
+        chrome.storage.local.get(['folderName'], (res) => {
+
+            // Format the folder path (add a slash if a folder is specified)
+            let folderPrefix = '';
+            if (res.folderName && res.folderName.trim() !== '') {
+                folderPrefix = res.folderName.trim() + '/';
+            }
+
+            let finalFilename = 'quick_save_image.jpg';
+            if (!request.url.startsWith('data:')) {
+                try {
+                    const urlObj = new URL(request.url);
+                    const extractedName = urlObj.pathname.split('/').pop();
+                    if (extractedName && extractedName.includes('.')) {
+                        finalFilename = extractedName;
+                    }
+                } catch (e) { }
+            }
+
+            // Trigger the download
+            chrome.downloads.download({
+                url: request.url,
+                filename: folderPrefix + finalFilename,
+                saveAs: false
+            });
         });
     }
 });

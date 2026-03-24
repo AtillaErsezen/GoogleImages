@@ -8,7 +8,8 @@
         "storage"
     ],
     "action": {
-        "default_title": "Toggle Quick Downloader"
+        "default_popup": "popup.html",
+        "default_title": "Downloader Settings"
     },
     "background": {
         "service_worker": "background.js"
