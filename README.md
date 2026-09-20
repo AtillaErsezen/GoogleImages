@@ -34,7 +34,7 @@ Building an image dataset by hand (right-click → "Save image as" → pick a fo
 4. Go to [Google Images](https://images.google.com), search for a class (e.g. `golden retriever`), and right-click any result to download it instantly
 5. Use **Reset All Counters** in the popup to restart numbering at `001`
 
-Downloads land in `<Downloads>/<folder>/<filename>_<counter>.<ext>`.
+Downloads land in `<folder>/<filename>_<counter>.<ext>`, relative to Chrome's configured download location (`chrome://settings/downloads`) — the extension can't choose an arbitrary path, only a subfolder under that root. You can change the default download directory from browser settings. Also make sure **Ask where to save each file** is turned off there, otherwise Chrome will still prompt on every download.
 
 ## How it works
 
